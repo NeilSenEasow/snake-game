@@ -1,6 +1,6 @@
 from bottle import Bottle, run, template, static_file
 import routes.home as home
-import routes.game as game  
+import routes.game as game
 
 # Create a Bottle application instance
 app = Bottle()
