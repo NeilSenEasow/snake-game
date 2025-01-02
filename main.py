@@ -1,4 +1,4 @@
-from bottle import Bottle, run, template, static_file
+from bottle import Bottle
 import routes.home as home
 import routes.game as game
 
