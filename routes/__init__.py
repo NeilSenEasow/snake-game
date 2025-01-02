@@ -1,5 +1,5 @@
 from . import home
-from .game import game
+from . import game
 
 def setup_routes(app):
     home.setup(app)
