@@ -4,10 +4,10 @@ from bottle import template
 def setup(app):
     @app.route('/game')
     def game():
-        return template('''
-            <h1>Snake Game</h1>
-            <div id="game-container">
-                <!-- Game will be added here later -->
-                <p>Game coming soon!</p>
-            </div>
-        ''')
+        # You can pass data to the template like this:
+        game_title = "Snake Game"
+        grid_size = 20
+        return template('game', 
+            title=game_title,
+            size=grid_size
+        )
