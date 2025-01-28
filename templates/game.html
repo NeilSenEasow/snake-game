@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Snake Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let currentDirection = 'RIGHT';
+            let gameActive = true;
+            
+            document.addEventListener('keydown', (e) => {
+                if (!gameActive) return;
+                
+                switch(e.key) {
+                    case 'ArrowUp':
+                        if (currentDirection !== 'DOWN') {
+                            currentDirection = 'UP';
+                            updateGame('UP');
+                        }
+                        break;
+                    case 'ArrowDown':
+                        if (currentDirection !== 'UP') {
+                            currentDirection = 'DOWN';
+                            updateGame('DOWN');
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        if (currentDirection !== 'RIGHT') {
+                            currentDirection = 'LEFT';
+                            updateGame('LEFT');
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (currentDirection !== 'LEFT') {
+                            currentDirection = 'RIGHT';
+                            updateGame('RIGHT');
+                        }
+                        break;
+                }
+            });
+            function updateGame(direction) {
+                fetch('/update_game', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ direction: direction })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.game_over) {
+                        gameActive = false;
+                        alert(`Game Over!\nFood Eaten: ${data.foodEaten}\nTime Survived: ${formatTime(data.time)}\nFinal Score: ${data.final_score}`);
+                        submitScore(data.final_score, data.foodEaten, data.time);
+                        location.reload();
+                        return;
+                    }
+                    updateSnake(data.snake);
+                    updateFood(data.food);
+                    updateFoodEaten(data.foodEaten);
+                    updateTimer(data.time);
+                    updateCurrentScore(data.current_score);
+                });
+            }
+            function updateSnake(snake) {
+                document.querySelectorAll('.snake, .snake-head').forEach(cell => {
+                    cell.className = 'grid-cell';
+                });
+                
+                snake.forEach((pos, index) => {
+                    const cell = document.querySelector(`[data-index="${pos}"]`);
+                    if (cell) {
+                        cell.className = `grid-cell ${index === 0 ? 'snake-head' : 'snake'}`;
+                    }
+                });
+            }
+            function updateFood(foodPos) {
+                document.querySelectorAll('.food').forEach(cell => {
+                    cell.className = 'grid-cell';
+                });
+                const foodCell = document.querySelector(`[data-index="${foodPos}"]`);
+                if (foodCell) {
+                    foodCell.className = 'grid-cell food';
+                }
+            }
+            function updateFoodEaten(foodEaten) {
+                document.getElementById('foodEaten').textContent = 'Food Eaten: ' + foodEaten;
+            }
+            function updateCurrentScore(score) {
+                document.getElementById('currentScore').textContent = 'Score: ' + score;
+            }
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+            function updateTimer(time) {
+                const formattedTime = formatTime(time);
+                document.getElementById('timer').textContent = `Time: ${formattedTime}`;
+                console.log('Updating timer:', formattedTime);
+            }
+            setInterval(() => {
+                if (gameActive) {
+                    updateGame(currentDirection);
+                }
+            }, 200);
+
+            function submitScore(finalScore, foodEaten, timeTaken) {
+                const playerName = prompt('Enter your name for the leaderboard:');
+                if (playerName) {
+                    fetch('/submit_score', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            name: playerName,
+                            final_score: finalScore,
+                            foodEaten: foodEaten,
+                            time: timeTaken
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            updateLeaderboard(data.leaderboard);
+                        }
+                    });
+                }
+            }
+
+            function updateLeaderboard(leaderboard) {
+                const leaderboardContent = document.getElementById('leaderboard-content');
+                leaderboardContent.innerHTML = leaderboard.map(entry => `
+                    <div class="leaderboard-entry">
+                        <span class="player-name">${entry.name}</span>
+                        <span class="player-score">${entry.score}</span>
+                    </div>
+                `).join('');
+            }
+
+            function refreshLeaderboard() {
+                fetch('/get_leaderboard')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateLeaderboard(data.leaderboard);
+                    });
+            }
+
+            setInterval(refreshLeaderboard, 30000);
+        });
+    </script>
+</head>
+<body>
+    <h1>Snake Game</h1>
+    <div class="game-container">
+        <div class="game-area">
+            <div id="game-grid">
+                {% for i in range(400) %}
+                    {% if i == snake[0] %}
+                        <div class="grid-cell snake-head" data-index="{{ i }}"></div>
+                    {% elif i in snake[1:] %}
+                        <div class="grid-cell snake" data-index="{{ i }}"></div>
+                    {% elif i == food %}
+                        <div class="grid-cell food" data-index="{{ i }}"></div>
+                    {% else %}
+                        <div class="grid-cell" data-index="{{ i }}"></div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <div id="game-info">
+                Use arrow keys to move
+            </div>
+        </div>
+        <div class="game-stats">
+            <div id="foodEaten" class="game-text">Food Eaten: 0</div>
+            <div id="timer" class="game-text">Time: 0:00</div>
+            <div id="currentScore" class="game-text">Score: 0</div>
+        </div>
+        <div class="leaderboard">
+            <h2>Leaderboard</h2>
+            <div id="leaderboard-content">
+                {% for entry in leaderboard %}
+                <div class="leaderboard-entry">
+                    <span class="player-name">{{ entry.name }}</span>
+                    <span class="player-score">{{ entry.score }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
